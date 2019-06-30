@@ -108,7 +108,7 @@ async function getMetrics(target, user, password) {
         if (sfpData.vnd[i] == '')
             continue;
 
-        let labels = { sfp_name: `SFP${i}` };
+        let labels = { sfp_name: `SFP${i+1}` };
         let temperature = parseHexInt32(sfpData.tmp[i]);
         if (temperature != -128)
             sfpTempGauge.set(labels, temperature);
