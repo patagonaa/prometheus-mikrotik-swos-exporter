@@ -9,6 +9,9 @@ Currently exported metrics:
 - SFP TX Bias
 - SFP TX Power
 - SFP RX Power
+- PCB Temperature
+
+These are fetched directly from the internal API of the Web interface. These might change in the future but it works for now.
 
 ## Example using docker:
 (also using [mndp autodiscovery](https://github.com/patagonaa/prometheus-mndp-autodiscovery) to find all available MikroTik Devices)
@@ -54,7 +57,7 @@ scrape_configs:
     metrics_path: '/metrics'
     params:
       user: ['admin']
-      password: ['secure']
+      password: ['secure'] # can be left empty
     scrape_interval: 30s
     file_sd_configs:
     - files:
