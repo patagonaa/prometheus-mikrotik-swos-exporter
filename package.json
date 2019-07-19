@@ -23,7 +23,6 @@
   "homepage": "https://github.com/patagonaa/prometheus-mikrotik-swos-exporter#readme",
   "dependencies": {
     "express": "^4.17.1",
-    "node-fetch": "^2.6.0",
     "prom-client": "^11.5.3",
     "urllib": "^2.34.0"
   }

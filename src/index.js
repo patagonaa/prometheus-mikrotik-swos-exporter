@@ -2,10 +2,6 @@ const urllib = require('urllib');
 var express = require('express')
 var app = express();
 
-const TARGET = '192.168.13.242';
-const USER = 'admin';
-const PASSWORD = '';
-
 function fixBrokenJson(brokenJson) {
     return brokenJson
         .replace(/([{,])([a-zA-Z][a-zA-Z0-9]+)/g, '$1"$2"') // {abc: 123} -> {"abc": 123}
@@ -16,10 +12,6 @@ function fixBrokenJson(brokenJson) {
 function parseBrokenJson(brokenJson) {
     return JSON.parse(fixBrokenJson(brokenJson));
 }
-
-// function parseHexAscii(hex) {
-//     return Buffer.from(hex, 'hex').toString();
-// }
 
 function parseHexInt16(hex) {
     let result = parseInt(hex, 16);
