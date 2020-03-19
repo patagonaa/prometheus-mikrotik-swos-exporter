@@ -129,7 +129,7 @@ async function getMetrics(target, user, password) {
 app.get('/metrics', async function (req, res, next) {
     try {
         console.info('scraping', req.query.target);
-        await getMetrics(req.query.target, req.query.user, req.params.query || '');
+        await getMetrics(req.query.target, req.query.user || 'admin', req.query.password || '');
         res.end(client.register.metrics());
     } catch (e) {
         console.error(e);

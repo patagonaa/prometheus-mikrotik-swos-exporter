@@ -1,9 +1,9 @@
 # prometheus-mikrotik-swos-exporter
 Mikrotik SwOS exporter for Prometheus (non-SNMP-data only)
 
-Tested with CSS326-24G-2S+ on SwOS version 2.9
+Tested with CSS326-24G-2S+ on SwOS version 2.9 to 2.11
 
-Currently exported metrics: 
+Currently exported metrics:
 - SFP Temperature
 - SFP Voltage
 - SFP TX Bias
@@ -14,7 +14,7 @@ Currently exported metrics:
 These are fetched directly from the internal API of the Web interface. These might change in the future but it works for now.
 
 ## Example using docker:
-(also using [mndp autodiscovery](https://github.com/patagonaa/prometheus-mndp-autodiscovery) to find all available MikroTik Devices)
+(also using [mndp autodiscovery](https://github.com/patagonaa/prometheus-mndp-autodiscovery) to find all available MikroTik devices in the network)
 ### docker-compose.yml
 ```yaml
 version: "3"
@@ -39,8 +39,8 @@ services:
   swos-exporter:
     image: prometheus-mikrotik-swos-exporter
     build: ./prometheus-mikrotik-swos-exporter # path of git repo
-    ports:
-      - "9300:3000"
+    expose:
+      - 3000
 
 volumes:
   prometheus-data:
@@ -70,7 +70,5 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: __param_target
       - target_label: __address__
-        replacement: '[hostname of docker-server or container id]:9300'
-
-
+        replacement: 'swos-exporter:3000'
 ```
