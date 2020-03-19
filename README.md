@@ -1,5 +1,5 @@
 # prometheus-mikrotik-swos-exporter
-Mikrotik SwOS exporter for Prometheus (non-SNMP-data only)
+Mikrotik SwOS exporter for Prometheus
 
 Tested with CSS326-24G-2S+ on SwOS version 2.9 to 2.11
 
@@ -12,6 +12,8 @@ Currently exported metrics:
 - PCB Temperature
 
 These are fetched directly from the internal API of the Web interface. These might change in the future but it works for now.
+
+Other metrics (like link up/down, link speeds, rx/tx bytes etc.) should be aquired via SNMP.
 
 ## Example using docker:
 (also using [mndp autodiscovery](https://github.com/patagonaa/prometheus-mndp-autodiscovery) to find all available MikroTik devices in the network)
