@@ -48,6 +48,11 @@ async function doRequest(target, endPoint, user, password) {
     });
 }
 
+async function getLink(target, user, password) {
+    let link = await doRequest(target, 'link.b', user, password);
+    return parseBrokenJson(link.toString());
+}
+
 async function getSfp(target, user, password) {
     let sfp = await doRequest(target, 'sfp.b', user, password);
     return parseBrokenJson(sfp.toString());
@@ -60,6 +65,11 @@ async function getSystem(target, user, password) {
 
 const client = require('prom-client');
 
+const sfpUpGauge = new client.Gauge({
+    name: 'swos_sfp_up',
+    help: 'Is a SFP Module inserted',
+    labelNames: ['sfp_name']
+});
 const sfpTempGauge = new client.Gauge({
     name: 'swos_sfp_temperature_celsius',
     help: 'Temperature of SFP Module',
@@ -89,41 +99,101 @@ const deviceTemperatureGauge = new client.Gauge({
     name: 'swos_device_temperature',
     help: 'Temperature of SwOS Device'
 });
+const deviceUptimeGauge = new client.Gauge({
+    name: 'swos_device_uptime_seconds',
+    help: 'Uptime of SwOS Device'
+});
+const deviceVoltageGauge = new client.Gauge({
+    name: 'swos_device_voltage_volts',
+    help: 'Input voltage of SwOS Device'
+});
+const poeCurrentGauge = new client.Gauge({
+    name: 'swos_port_poe_current_milliamps',
+    help: 'PoE Current on a port',
+    labelNames: ['port_name']
+});
+const poePowerGauge = new client.Gauge({
+    name: 'swos_port_poe_power_watts',
+    help: 'PoE Power on a port',
+    labelNames: ['port_name']
+});
+
+// turn
+// {a: [0, 1], b: [2, 3]}
+// into
+// [{a: 0, b: 2}, {a: 1, b: 3}]
+function pivotObject(data, keys) {
+    let toReturn = [];
+    let count = (data[keys[0]] || {}).length || 0;
+
+    for (let i = 0; i < count; i++) {
+        let entry = { index: i };
+        for (let key of keys) {
+            entry[key] = data[key][i];
+        }
+        toReturn.push(entry);
+    }
+    return toReturn;
+}
 
 async function getMetrics(target, user, password) {
     client.register.resetMetrics();
 
+    let linkData = await getLink(target, user, password);
+
+    let ports = pivotObject(linkData, ['poes', 'curr', 'pwr']);
+
+    for (let port of ports) {
+        let labels = { port_name: `Port${port.index + 1}` };
+        if (parseInt(port.poes, 16) === 0)
+            continue; // Port has no PoE
+
+        poeCurrentGauge.set(labels, parseHexInt16(port.curr));
+        poePowerGauge.set(labels, parseHexInt16(port.pwr) / 10);
+    }
+
     let sfpData = await getSfp(target, user, password);
-    let sfpCount = sfpData.vnd.length;
+    let sfps = Array.isArray(sfpData.vnd) ? pivotObject(sfpData, ['vnd', 'tmp', 'vcc', 'tbs', 'tpw', 'rpw']) : [sfpData];
 
-    for (let i = 0; i < sfpCount; i++) {
-        if (sfpData.vnd[i] == '')
+    for (let sfp of sfps) {
+
+        let labels = { sfp_name: `SFP${(sfp.index + 1) || ''}` };
+
+        if (sfp.vnd == '') {
+            sfpUpGauge.set(labels, 0);
             continue;
+        }
 
-        let labels = { sfp_name: `SFP${i+1}` };
-        let temperature = parseHexInt32(sfpData.tmp[i]);
+        sfpUpGauge.set(labels, 1);
+
+        let temperature = parseHexInt32(sfp.tmp);
         if (temperature != -128)
             sfpTempGauge.set(labels, temperature);
 
-        let voltage = parseHexInt16(sfpData.vcc[i]);
+        let voltage = parseHexInt16(sfp.vcc);
         if (voltage != 0)
             sfpVccGauge.set(labels, voltage / 1000);
 
-        let txBias = parseHexInt16(sfpData.tbs[i]);
+        let txBias = parseHexInt16(sfp.tbs);
         if (txBias != 0)
             sfpTxBiasGauge.set(labels, txBias);
 
-        let txPowerMilliwatts = parseHexInt16(sfpData.tpw[i]);
+        let txPowerMilliwatts = parseHexInt16(sfp.tpw);
         if (txPowerMilliwatts != 0)
             sfpTxPowerGauge.set(labels, txPowerMilliwatts / 10000);
 
-        let rxPowerMilliwatts = parseHexInt16(sfpData.rpw[i]);
+        let rxPowerMilliwatts = parseHexInt16(sfp.rpw);
         if (rxPowerMilliwatts != 0)
             sfpRxPowerGauge.set(labels, rxPowerMilliwatts / 10000);
     }
 
     let sysData = await getSystem(target, user, password);
-    deviceTemperatureGauge.set({}, parseHexInt32(sysData.temp));
+    if (sysData.temp)
+        deviceTemperatureGauge.set({}, parseHexInt32(sysData.temp));
+    if (sysData.upt)
+        deviceUptimeGauge.set({}, parseHexInt32(sysData.upt) / 100);
+    if (sysData.volt)
+        deviceVoltageGauge.set({}, parseHexInt16(sysData.volt) / 10);
 }
 
 app.get('/metrics', async function (req, res, next) {
