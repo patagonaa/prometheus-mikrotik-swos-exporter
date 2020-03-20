@@ -192,8 +192,11 @@ async function getMetrics(target, user, password) {
         deviceTemperatureGauge.set({}, parseHexInt32(sysData.temp));
     if (sysData.upt)
         deviceUptimeGauge.set({}, parseHexInt32(sysData.upt) / 100);
-    if (sysData.volt)
+    if (sysData.volt) {
         deviceVoltageGauge.set({}, parseHexInt16(sysData.volt) / 10);
+    } else {
+        deviceVoltageGauge.remove();
+    }
 }
 
 app.get('/metrics', async function (req, res, next) {
