@@ -99,10 +99,6 @@ const deviceTemperatureGauge = new client.Gauge({
     name: 'swos_device_temperature',
     help: 'Temperature of SwOS Device'
 });
-const deviceUptimeGauge = new client.Gauge({
-    name: 'swos_device_uptime_seconds',
-    help: 'Uptime of SwOS Device'
-});
 const deviceVoltageGauge = new client.Gauge({
     name: 'swos_device_voltage_volts',
     help: 'Input voltage of SwOS Device'
@@ -190,8 +186,6 @@ async function getMetrics(target, user, password) {
     let sysData = await getSystem(target, user, password);
     if (sysData.temp)
         deviceTemperatureGauge.set({}, parseHexInt32(sysData.temp));
-    if (sysData.upt)
-        deviceUptimeGauge.set({}, parseHexInt32(sysData.upt) / 100);
     if (sysData.volt) {
         deviceVoltageGauge.set({}, parseHexInt16(sysData.volt) / 10);
     } else {

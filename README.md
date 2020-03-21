@@ -6,7 +6,6 @@ Tested with:
 - CSS106-1G-4P-1S on SwOS version 2.11
 
 Currently exported metrics:
-- Device Uptime
 - Device Input Voltage
 - PCB Temperature
 - SFP Temperature
