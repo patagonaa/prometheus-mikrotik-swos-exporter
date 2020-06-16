@@ -145,7 +145,7 @@ async function getMetrics(target, user, password) {
     let ports = pivotObject(linkData, ['nm', 'poes', 'curr', 'pwr']);
     for (let port of ports) {
         let labels = { port_name: `Port${port.index + 1}`, port_desc: parseHexString(port.nm) };
-        if (parseInt(port.poes, 16) === 0)
+        if (port.poes == null || parseInt(port.poes, 16) === 0)
             continue; // Port has no PoE
 
         poeCurrentGauge.set(labels, parseHexInt16(port.curr));
