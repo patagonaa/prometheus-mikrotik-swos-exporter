@@ -29,6 +29,10 @@ function parseHexInt32(hex) {
     return result;
 }
 
+function parseHexString(hex) {
+    return Buffer.from(hex, 'hex').toString();
+}
+
 async function doRequest(target, endPoint, user, password) {
     let requestOptions = {
         digestAuth: `${user}:${password}`,
@@ -68,32 +72,32 @@ const client = require('prom-client');
 const sfpUpGauge = new client.Gauge({
     name: 'swos_sfp_up',
     help: 'Is a SFP Module inserted',
-    labelNames: ['sfp_name']
+    labelNames: ['sfp_name', 'sfp_desc']
 });
 const sfpTempGauge = new client.Gauge({
     name: 'swos_sfp_temperature_celsius',
     help: 'Temperature of SFP Module',
-    labelNames: ['sfp_name']
+    labelNames: ['sfp_name', 'sfp_desc']
 });
 const sfpVccGauge = new client.Gauge({
     name: 'swos_sfp_vcc_volts',
     help: 'VCC voltage of SFP Module',
-    labelNames: ['sfp_name']
+    labelNames: ['sfp_name', 'sfp_desc']
 });
 const sfpTxBiasGauge = new client.Gauge({
     name: 'swos_sfp_tx_bias_milliamps',
     help: 'TX Bias (mA) of SFP Module',
-    labelNames: ['sfp_name']
+    labelNames: ['sfp_name', 'sfp_desc']
 });
 const sfpTxPowerGauge = new client.Gauge({
     name: 'swos_sfp_tx_power_milliwatts',
     help: 'TX Power (mW) of SFP Module',
-    labelNames: ['sfp_name']
+    labelNames: ['sfp_name', 'sfp_desc']
 });
 const sfpRxPowerGauge = new client.Gauge({
     name: 'swos_sfp_rx_power_milliwatts',
     help: 'RX Power (mW) of SFP Module',
-    labelNames: ['sfp_name']
+    labelNames: ['sfp_name', 'sfp_desc']
 });
 const deviceTemperatureGauge = new client.Gauge({
     name: 'swos_device_temperature',
@@ -106,12 +110,12 @@ const deviceVoltageGauge = new client.Gauge({
 const poeCurrentGauge = new client.Gauge({
     name: 'swos_port_poe_current_milliamps',
     help: 'PoE Current on a port',
-    labelNames: ['port_name']
+    labelNames: ['port_name', 'port_desc']
 });
 const poePowerGauge = new client.Gauge({
     name: 'swos_port_poe_power_watts',
     help: 'PoE Power on a port',
-    labelNames: ['port_name']
+    labelNames: ['port_name', 'port_desc']
 });
 
 // turn
@@ -125,6 +129,8 @@ function pivotObject(data, keys) {
     for (let i = 0; i < count; i++) {
         let entry = { index: i };
         for (let key of keys) {
+            if (data[key] == null)
+                continue;
             entry[key] = data[key][i];
         }
         toReturn.push(entry);
@@ -136,11 +142,9 @@ async function getMetrics(target, user, password) {
     client.register.resetMetrics();
 
     let linkData = await getLink(target, user, password);
-
-    let ports = pivotObject(linkData, ['poes', 'curr', 'pwr']);
-
+    let ports = pivotObject(linkData, ['nm', 'poes', 'curr', 'pwr']);
     for (let port of ports) {
-        let labels = { port_name: `Port${port.index + 1}` };
+        let labels = { port_name: `Port${port.index + 1}`, port_desc: parseHexString(port.nm) };
         if (parseInt(port.poes, 16) === 0)
             continue; // Port has no PoE
 
@@ -149,11 +153,12 @@ async function getMetrics(target, user, password) {
     }
 
     let sfpData = await getSfp(target, user, password);
-    let sfps = Array.isArray(sfpData.vnd) ? pivotObject(sfpData, ['vnd', 'tmp', 'vcc', 'tbs', 'tpw', 'rpw']) : [sfpData];
+    let sfps = Array.isArray(sfpData.vnd) ? pivotObject(sfpData, ['vnd', 'tmp', 'vcc', 'tbs', 'tpw', 'rpw']) : [{ index: 0, ...sfpData }];
 
     for (let sfp of sfps) {
+        let portIndex = ports.length - sfps.length + sfp.index; // assume sfps are always at the end of the port list
 
-        let labels = { sfp_name: `SFP${(sfp.index + 1) || ''}` };
+        let labels = { sfp_name: `SFP${(sfp.index + 1) || ''}`, sfp_desc: parseHexString(ports[portIndex].nm) };
 
         if (sfp.vnd == '') {
             sfpUpGauge.set(labels, 0);
