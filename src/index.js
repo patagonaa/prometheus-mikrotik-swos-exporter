@@ -21,14 +21,6 @@ function parseHexInt16(hex) {
     return result;
 }
 
-function parseHexInt32(hex) {
-    let result = parseInt(hex, 16);
-    if ((result & 0x80000000) !== 0) {
-        result -= 0x100000000;
-    }
-    return result;
-}
-
 function parseHexString(hex) {
     return Buffer.from(hex, 'hex').toString();
 }
@@ -62,33 +54,7 @@ async function getSfp(target, user, password) {
     return parseBrokenJson(sfp.toString());
 }
 
-async function getSystem(target, user, password) {
-    let sys = await doRequest(target, 'sys.b', user, password);
-    return parseBrokenJson(sys.toString());
-}
-
 const client = require('prom-client');
-
-const sfpUpGauge = new client.Gauge({
-    name: 'swos_sfp_up',
-    help: 'Is a SFP Module inserted',
-    labelNames: ['sfp_name', 'sfp_desc']
-});
-const sfpTempGauge = new client.Gauge({
-    name: 'swos_sfp_temperature_celsius',
-    help: 'Temperature of SFP Module',
-    labelNames: ['sfp_name', 'sfp_desc']
-});
-const sfpVccGauge = new client.Gauge({
-    name: 'swos_sfp_vcc_volts',
-    help: 'VCC voltage of SFP Module',
-    labelNames: ['sfp_name', 'sfp_desc']
-});
-const sfpTxBiasGauge = new client.Gauge({
-    name: 'swos_sfp_tx_bias_milliamps',
-    help: 'TX Bias (mA) of SFP Module',
-    labelNames: ['sfp_name', 'sfp_desc']
-});
 const sfpTxPowerGauge = new client.Gauge({
     name: 'swos_sfp_tx_power_milliwatts',
     help: 'TX Power (mW) of SFP Module',
@@ -98,24 +64,6 @@ const sfpRxPowerGauge = new client.Gauge({
     name: 'swos_sfp_rx_power_milliwatts',
     help: 'RX Power (mW) of SFP Module',
     labelNames: ['sfp_name', 'sfp_desc']
-});
-const deviceTemperatureGauge = new client.Gauge({
-    name: 'swos_device_temperature',
-    help: 'Temperature of SwOS Device'
-});
-const deviceVoltageGauge = new client.Gauge({
-    name: 'swos_device_voltage_volts',
-    help: 'Input voltage of SwOS Device'
-});
-const poeCurrentGauge = new client.Gauge({
-    name: 'swos_port_poe_current_milliamps',
-    help: 'PoE Current on a port',
-    labelNames: ['port_name', 'port_desc']
-});
-const poePowerGauge = new client.Gauge({
-    name: 'swos_port_poe_power_watts',
-    help: 'PoE Power on a port',
-    labelNames: ['port_name', 'port_desc']
 });
 
 // turn
@@ -142,18 +90,9 @@ async function getMetrics(target, user, password) {
     client.register.resetMetrics();
 
     let linkData = await getLink(target, user, password);
-    let ports = pivotObject(linkData, ['nm', 'poes', 'curr', 'pwr']);
-    for (let port of ports) {
-        let labels = { port_name: `Port${port.index + 1}`, port_desc: parseHexString(port.nm) };
-        if (port.poes == null || parseInt(port.poes, 16) === 0)
-            continue; // Port has no PoE
-
-        poeCurrentGauge.set(labels, parseHexInt16(port.curr));
-        poePowerGauge.set(labels, parseHexInt16(port.pwr) / 10);
-    }
-
+    let ports = pivotObject(linkData, ['nm']);
     let sfpData = await getSfp(target, user, password);
-    let sfps = Array.isArray(sfpData.vnd) ? pivotObject(sfpData, ['vnd', 'tmp', 'vcc', 'tbs', 'tpw', 'rpw']) : [{ index: 0, ...sfpData }];
+    let sfps = Array.isArray(sfpData.vnd) ? pivotObject(sfpData, ['vnd', 'tpw', 'rpw']) : [{ index: 0, ...sfpData }];
 
     for (let sfp of sfps) {
         let portIndex = ports.length - sfps.length + sfp.index; // assume sfps are always at the end of the port list
@@ -161,23 +100,8 @@ async function getMetrics(target, user, password) {
         let labels = { sfp_name: `SFP${(sfp.index + 1) || ''}`, sfp_desc: parseHexString(ports[portIndex].nm) };
 
         if (sfp.vnd == '') {
-            sfpUpGauge.set(labels, 0);
             continue;
         }
-
-        sfpUpGauge.set(labels, 1);
-
-        let temperature = parseHexInt32(sfp.tmp);
-        if (temperature != -128)
-            sfpTempGauge.set(labels, temperature);
-
-        let voltage = parseHexInt16(sfp.vcc);
-        if (voltage != 0)
-            sfpVccGauge.set(labels, voltage / 1000);
-
-        let txBias = parseHexInt16(sfp.tbs);
-        if (txBias != 0)
-            sfpTxBiasGauge.set(labels, txBias);
 
         let txPowerMilliwatts = parseHexInt16(sfp.tpw);
         if (txPowerMilliwatts != 0)
@@ -186,15 +110,6 @@ async function getMetrics(target, user, password) {
         let rxPowerMilliwatts = parseHexInt16(sfp.rpw);
         if (rxPowerMilliwatts != 0)
             sfpRxPowerGauge.set(labels, rxPowerMilliwatts / 10000);
-    }
-
-    let sysData = await getSystem(target, user, password);
-    if (sysData.temp)
-        deviceTemperatureGauge.set({}, parseHexInt32(sysData.temp));
-    if (sysData.volt) {
-        deviceVoltageGauge.set({}, parseHexInt16(sysData.volt) / 10);
-    } else {
-        deviceVoltageGauge.remove();
     }
 }
 
