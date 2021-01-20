@@ -3,15 +3,25 @@ Mikrotik SwOS exporter for Prometheus
 
 Tested with:
 - CSS326-24G-2S+ on SwOS version 2.9 to 2.12
-- CSS106-1G-4P-1S on SwOS version 2.12
+- CSS106-1G-4P-1S on SwOS version 2.11 to 2.12
+- CRS305-1G-4S+ on SwOS version 2.12
 
 Currently exported metrics:
+- ~~Device Input Voltage~~ (can be read via SNMP)
+- ~~PCB Temperature~~ (can be read via SNMP)
+- SFP Temperature (can be read via SNMP since SwOS 2.12)
+- SFP Voltage (can be read via SNMP since SwOS 2.12)
+- SFP TX Bias (can be read via SNMP since SwOS 2.12)
 - SFP TX Power
 - SFP RX Power
+- PoE Current (can be read via SNMP since SwOS 2.12)
+- PoE Power (can be read via SNMP since SwOS 2.12)
+
+__Warning: RSTP is broken in SwOS 2.12 (at least) on the CSS106-1G-4P-1S! If that wasn't the case this exporter would be mostly unnecessary (see above).__ 
 
 These are fetched directly from the internal API of the Web interface. The web interface might change in the future but this works for now.
 
-This exporter used to scrape a lot more metrics before I realized I just had to configure the SNMP Exporter differently to get most of these metrics (in addition to the usual link speed, rx/tx bytes etc. metrics that are available via SNMP using the IF-MIB).
+Other metrics (like link up/down, link speeds, rx/tx bytes etc.) should be acquired via SNMP.
 
 You can use the following generator.yml module for the [snmp-exporter](https://github.com/prometheus/snmp_exporter) generator to get PoE, temperature and SFP metrics:
 ```yaml
