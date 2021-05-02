@@ -1,29 +1,27 @@
 # prometheus-mikrotik-swos-exporter
-Mikrotik SwOS exporter for Prometheus
+Mikrotik SwOS exporter for Prometheus. Up until version 2.12 the crossed out metrics below weren't available via SNMP yet. They are now, so this project is mostly unneccessary now.
 
 Tested with:
-- CSS326-24G-2S+ on SwOS version 2.9 to 2.12
-- CSS106-1G-4P-1S on SwOS version 2.11 to 2.12
+- CSS326-24G-2S+ on SwOS version 2.9 to 2.13
+- CSS106-1G-4P-1S on SwOS version 2.11 to 2.13
 - CRS305-1G-4S+ on SwOS version 2.12
 
 Currently exported metrics:
-- ~~Device Input Voltage~~ (can be read via SNMP)
-- ~~PCB Temperature~~ (can be read via SNMP)
-- SFP Temperature (can be read via SNMP since SwOS 2.12)
-- SFP Voltage (can be read via SNMP since SwOS 2.12)
-- SFP TX Bias (can be read via SNMP since SwOS 2.12)
+- ~~Device Input Voltage~~ (SNMP mtxrHlVoltage)
+- ~~PCB Temperature~~ (SNMP mtxrHlTemperature / mtxrHlProcessorTemperature)
+- ~~SFP Temperature~~ (SNMP mtxrOpticalTemperature)
+- ~~SFP Voltage~~ (SNMP mtxrOpticalSupplyVoltage)
+- ~~SFP TX Bias~~ (SNMP mtxrOpticalTxBiasCurrent)
 - SFP TX Power
 - SFP RX Power
-- PoE Current (can be read via SNMP since SwOS 2.12)
-- PoE Power (can be read via SNMP since SwOS 2.12)
+- ~~PoE Current~~ (SNMP mtxrPOECurrent)
+- ~~PoE Power~~ (SNMP mtxrPOEPower)
 
-__Warning: RSTP is broken in SwOS 2.12 (at least) on the CSS106-1G-4P-1S! If that wasn't the case this exporter would be mostly unnecessary (see above).__ 
-
-These are fetched directly from the internal API of the Web interface. The web interface might change in the future but this works for now.
+These are fetched directly from the internal API of the web interface. The web interface might change in the future but this works for now.
 
 Other metrics (like link up/down, link speeds, rx/tx bytes etc.) should be acquired via SNMP.
 
-You can use the following generator.yml module for the [snmp-exporter](https://github.com/prometheus/snmp_exporter) generator to get PoE, temperature and SFP metrics:
+You can use the following generator.yml module for the [snmp-exporter](https://github.com/prometheus/snmp_exporter) generator to get PoE, temperature and SFP metrics (in addition to the usual IF-MIB statistics):
 ```yaml
 modules:
   mikrotik:
