@@ -33,15 +33,12 @@ async function doRequest(target, endPoint, user, password) {
 
     let url = `http://${target}/${endPoint}`;
 
-    return await new Promise((resolve, reject) => {
-        urllib.request(url, requestOptions, (err, data, res) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(data);
-        });
-    });
+    let response = await urllib.request(url, requestOptions);
+
+    if(response.status != 200)
+        throw response;
+
+    return response.data;
 }
 
 async function getLink(target, user, password) {
