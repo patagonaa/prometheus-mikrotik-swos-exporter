@@ -63,6 +63,8 @@ async function getSfp(target, user, password) {
 
 async function getDhost(target, user, password) {
     let dhost = await doRequest(target, '!dhost.b', user, password);
+    if (dhost == null)
+        return null;
     return parseBrokenJson(dhost.toString());
 }
 
@@ -70,19 +72,19 @@ const client = require('prom-client');
 const sfpTxPowerGauge = new client.Gauge({
     name: 'swos_sfp_tx_power_milliwatts',
     help: 'TX Power (mW) of SFP module',
-    labelNames: ['sfp_name', 'sfp_desc']
+    labelNames: ['target', 'sfp_name', 'sfp_desc']
 });
 const sfpRxPowerGauge = new client.Gauge({
     name: 'swos_sfp_rx_power_milliwatts',
     help: 'RX Power (mW) of SFP module',
-    labelNames: ['sfp_name', 'sfp_desc']
+    labelNames: ['target', 'sfp_name', 'sfp_desc']
 });
 
 
 const macAddressTableGauge = new client.Gauge({
     name: 'swos_mac_addr_table_count',
     help: 'Count of entries in mac address table',
-    labelNames: ['vlan', 'port_name', 'port_desc']
+    labelNames: ['target', 'vlan', 'port_name', 'port_desc']
 });
 
 // turn
@@ -128,7 +130,7 @@ async function getMetrics(target, user, password) {
                 let split = key.split('|');
                 let vlan = split[0];
                 let port = split[1];
-                macAddressTableGauge.set({ vlan: vlan, port_name: 'Port' + ((+port) + 1), port_desc: parseHexString(ports[port].nm) }, macTableGrouped[key].size);
+                macAddressTableGauge.set({ target: target, vlan: vlan, port_name: 'Port' + ((+port) + 1), port_desc: parseHexString(ports[port].nm) }, macTableGrouped[key].size);
             }
         }
     } catch (e) {
@@ -141,7 +143,7 @@ async function getMetrics(target, user, password) {
     for (let sfp of sfps) {
         let portIndex = ports.length - sfps.length + sfp.index; // assume sfps are always at the end of the port list
 
-        let labels = { sfp_name: `SFP${(sfp.index + 1) || ''}`, sfp_desc: parseHexString(ports[portIndex].nm) };
+        let labels = { target: target, sfp_name: `SFP${(sfp.index + 1) || ''}`, sfp_desc: parseHexString(ports[portIndex].nm) };
 
         if (sfp.vnd == '') {
             continue;
