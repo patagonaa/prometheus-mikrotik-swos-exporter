@@ -32,7 +32,7 @@ async function doRequest(target, endPoint, user, password) {
             let requestOptions = {
                 digestAuth: `${user}:${password}`,
                 dataType: 'text',
-                timeout: [5000, 5000]
+                timeout: [1000, 2000]
             };
 
             let url = `http://${target}/${endPoint}`;
