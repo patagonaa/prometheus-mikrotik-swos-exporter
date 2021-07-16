@@ -26,20 +26,29 @@ function parseHexString(hex) {
 }
 
 async function doRequest(target, endPoint, user, password) {
-    let requestOptions = {
-        digestAuth: `${user}:${password}`,
-        dataType: 'text',
-        timeout: [5000, 30000]
-    };
+    let error;
+    for (let i = 0; i < 3; i++) {
+        try {
+            let requestOptions = {
+                digestAuth: `${user}:${password}`,
+                dataType: 'text',
+                timeout: [5000, 5000]
+            };
 
-    let url = `http://${target}/${endPoint}`;
+            let url = `http://${target}/${endPoint}`;
 
-    let response = await urllib.request(url, requestOptions);
+            let response = await urllib.request(url, requestOptions);
 
-    if (response.status != 200)
-        throw response;
+            if (response.status != 200)
+                throw response;
 
-    return response.data;
+            return response.data;
+        } catch (err) {
+            error = err;
+        }
+    }
+    console.error(error);
+    return null;
 }
 
 async function getLink(target, user, password) {
@@ -105,22 +114,24 @@ async function getMetrics(target, user, password) {
     try {
         let macTableData = await getDhost(target, user, password);
 
-        let macTableGrouped = {};
-        for (const entry of macTableData) {
-            var key = `${parseHexInt16(entry.vid)}|${parseHexInt16(entry.prt)}`;
-            if (macTableGrouped[key] == null) {
-                macTableGrouped[key] = new Set();
+        if (macTableData != null) {
+            let macTableGrouped = {};
+            for (const entry of macTableData) {
+                var key = `${parseHexInt16(entry.vid)}|${parseHexInt16(entry.prt)}`;
+                if (macTableGrouped[key] == null) {
+                    macTableGrouped[key] = new Set();
+                }
+                macTableGrouped[key].add(entry.adr);
             }
-            macTableGrouped[key].add(entry.adr);
-        }
 
-        for (const key of Object.keys(macTableGrouped)) {
-            let split = key.split('|');
-            let vlan = split[0];
-            let port = split[1];
-            macAddressTableGauge.set({ vlan: vlan, port_name: 'Port' + ((+port) + 1), port_desc: parseHexString(ports[port].nm) }, macTableGrouped[key].size);
+            for (const key of Object.keys(macTableGrouped)) {
+                let split = key.split('|');
+                let vlan = split[0];
+                let port = split[1];
+                macAddressTableGauge.set({ vlan: vlan, port_name: 'Port' + ((+port) + 1), port_desc: parseHexString(ports[port].nm) }, macTableGrouped[key].size);
+            }
         }
-    }catch(e){
+    } catch (e) {
         console.error(e);
     }
 
