@@ -109,16 +109,16 @@ async function getMetrics(target, user, password) {
         for (const entry of macTableData) {
             var key = `${parseHexInt16(entry.vid)}|${parseHexInt16(entry.prt)}`;
             if (macTableGrouped[key] == null) {
-                macTableGrouped[key] = 0;
+                macTableGrouped[key] = new Set();
             }
-            macTableGrouped[key]++;
+            macTableGrouped[key].add(entry.adr);
         }
 
         for (const key of Object.keys(macTableGrouped)) {
             let split = key.split('|');
             let vlan = split[0];
             let port = split[1];
-            macAddressTableGauge.set({ vlan: vlan, port_name: 'Port' + ((+port) + 1), port_desc: parseHexString(ports[port].nm) }, macTableGrouped[key]);
+            macAddressTableGauge.set({ vlan: vlan, port_name: 'Port' + ((+port) + 1), port_desc: parseHexString(ports[port].nm) }, macTableGrouped[key].size);
         }
     }catch(e){
         console.error(e);
