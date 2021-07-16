@@ -28,14 +28,15 @@ function parseHexString(hex) {
 async function doRequest(target, endPoint, user, password) {
     let requestOptions = {
         digestAuth: `${user}:${password}`,
-        dataType: 'text'
+        dataType: 'text',
+        timeout: [5000, 30000]
     };
 
     let url = `http://${target}/${endPoint}`;
 
     let response = await urllib.request(url, requestOptions);
 
-    if(response.status != 200)
+    if (response.status != 200)
         throw response;
 
     return response.data;
@@ -51,16 +52,28 @@ async function getSfp(target, user, password) {
     return parseBrokenJson(sfp.toString());
 }
 
+async function getDhost(target, user, password) {
+    let dhost = await doRequest(target, '!dhost.b', user, password);
+    return parseBrokenJson(dhost.toString());
+}
+
 const client = require('prom-client');
 const sfpTxPowerGauge = new client.Gauge({
     name: 'swos_sfp_tx_power_milliwatts',
-    help: 'TX Power (mW) of SFP Module',
+    help: 'TX Power (mW) of SFP module',
     labelNames: ['sfp_name', 'sfp_desc']
 });
 const sfpRxPowerGauge = new client.Gauge({
     name: 'swos_sfp_rx_power_milliwatts',
-    help: 'RX Power (mW) of SFP Module',
+    help: 'RX Power (mW) of SFP module',
     labelNames: ['sfp_name', 'sfp_desc']
+});
+
+
+const macAddressTableGauge = new client.Gauge({
+    name: 'swos_mac_addr_table_count',
+    help: 'Count of entries in mac address table',
+    labelNames: ['vlan', 'port_name', 'port_desc']
 });
 
 // turn
@@ -88,6 +101,29 @@ async function getMetrics(target, user, password) {
 
     let linkData = await getLink(target, user, password);
     let ports = pivotObject(linkData, ['nm']);
+
+    try {
+        let macTableData = await getDhost(target, user, password);
+
+        let macTableGrouped = {};
+        for (const entry of macTableData) {
+            var key = `${parseHexInt16(entry.vid)}|${parseHexInt16(entry.prt)}`;
+            if (macTableGrouped[key] == null) {
+                macTableGrouped[key] = 0;
+            }
+            macTableGrouped[key]++;
+        }
+
+        for (const key of Object.keys(macTableGrouped)) {
+            let split = key.split('|');
+            let vlan = split[0];
+            let port = split[1];
+            macAddressTableGauge.set({ vlan: vlan, port_name: 'Port' + ((+port) + 1), port_desc: parseHexString(ports[port].nm) }, macTableGrouped[key]);
+        }
+    }catch(e){
+        console.error(e);
+    }
+
     let sfpData = await getSfp(target, user, password);
     let sfps = Array.isArray(sfpData.vnd) ? pivotObject(sfpData, ['vnd', 'tpw', 'rpw']) : [{ index: 0, ...sfpData }];
 
