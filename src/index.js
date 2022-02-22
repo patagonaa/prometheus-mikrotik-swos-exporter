@@ -26,19 +26,29 @@ function parseHexString(hex) {
 }
 
 async function doRequest(target, endPoint, user, password) {
-    let requestOptions = {
-        digestAuth: `${user}:${password}`,
-        dataType: 'text'
-    };
+    let error;
+    for (let i = 0; i < 3; i++) {
+        try {
+            let requestOptions = {
+                digestAuth: `${user}:${password}`,
+                dataType: 'text',
+                timeout: [1000, 2000]
+            };
 
-    let url = `http://${target}/${endPoint}`;
+            let url = `http://${target}/${endPoint}`;
 
-    let response = await urllib.request(url, requestOptions);
+            let response = await urllib.request(url, requestOptions);
 
-    if(response.status != 200)
-        throw response;
+            if (response.status != 200)
+                throw response;
 
-    return response.data;
+            return response.data;
+        } catch (err) {
+            error = err;
+        }
+    }
+    console.error(error);
+    return null;
 }
 
 async function getLink(target, user, password) {
@@ -51,16 +61,30 @@ async function getSfp(target, user, password) {
     return parseBrokenJson(sfp.toString());
 }
 
+async function getDhost(target, user, password) {
+    let dhost = await doRequest(target, '!dhost.b', user, password);
+    if (dhost == null)
+        return null;
+    return parseBrokenJson(dhost.toString());
+}
+
 const client = require('prom-client');
 const sfpTxPowerGauge = new client.Gauge({
     name: 'swos_sfp_tx_power_milliwatts',
-    help: 'TX Power (mW) of SFP Module',
-    labelNames: ['sfp_name', 'sfp_desc']
+    help: 'TX Power (mW) of SFP module',
+    labelNames: ['target', 'sfp_name', 'sfp_desc']
 });
 const sfpRxPowerGauge = new client.Gauge({
     name: 'swos_sfp_rx_power_milliwatts',
-    help: 'RX Power (mW) of SFP Module',
-    labelNames: ['sfp_name', 'sfp_desc']
+    help: 'RX Power (mW) of SFP module',
+    labelNames: ['target', 'sfp_name', 'sfp_desc']
+});
+
+
+const macAddressTableGauge = new client.Gauge({
+    name: 'swos_mac_addr_table_count',
+    help: 'Count of entries in mac address table',
+    labelNames: ['target', 'vlan', 'port_name', 'port_desc']
 });
 
 // turn
@@ -88,13 +112,38 @@ async function getMetrics(target, user, password) {
 
     let linkData = await getLink(target, user, password);
     let ports = pivotObject(linkData, ['nm']);
+
+    try {
+        let macTableData = await getDhost(target, user, password);
+
+        if (macTableData != null) {
+            let macTableGrouped = {};
+            for (const entry of macTableData) {
+                var key = `${parseHexInt16(entry.vid)}|${parseHexInt16(entry.prt)}`;
+                if (macTableGrouped[key] == null) {
+                    macTableGrouped[key] = new Set();
+                }
+                macTableGrouped[key].add(entry.adr);
+            }
+
+            for (const key of Object.keys(macTableGrouped)) {
+                let split = key.split('|');
+                let vlan = split[0];
+                let port = split[1];
+                macAddressTableGauge.set({ target: target, vlan: vlan, port_name: 'Port' + ((+port) + 1), port_desc: parseHexString(ports[port].nm) }, macTableGrouped[key].size);
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+
     let sfpData = await getSfp(target, user, password);
     let sfps = Array.isArray(sfpData.vnd) ? pivotObject(sfpData, ['vnd', 'tpw', 'rpw']) : [{ index: 0, ...sfpData }];
 
     for (let sfp of sfps) {
         let portIndex = ports.length - sfps.length + sfp.index; // assume sfps are always at the end of the port list
 
-        let labels = { sfp_name: `SFP${(sfp.index + 1) || ''}`, sfp_desc: parseHexString(ports[portIndex].nm) };
+        let labels = { target: target, sfp_name: `SFP${(sfp.index + 1) || ''}`, sfp_desc: parseHexString(ports[portIndex].nm) };
 
         if (sfp.vnd == '') {
             continue;
