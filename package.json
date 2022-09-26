@@ -24,7 +24,7 @@
   "dependencies": {
     "express": "^4.17.1",
     "prom-client": "^11.5.3",
-    "urllib": "2.34.2"
+    "urllib": "2.38.1"
   },
   "//": "!!! a dependency of urllib has a vulnerability, but since urllib 2.35.0 all header names are changed to lowercase and the mikrotik switches don't like that... !!!"
 }
