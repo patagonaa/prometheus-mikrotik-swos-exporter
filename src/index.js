@@ -164,7 +164,7 @@ app.get('/metrics', async function (req, res, next) {
         console.info('scraping', req.query.target);
         await getMetrics(req.query.target, req.query.user || 'admin', req.query.password || '');
         res.set('Content-Type', client.register.contentType);
-        res.end(client.register.metrics());
+        res.end(await client.register.metrics());
     } catch (e) {
         console.error(e);
         next(e);
